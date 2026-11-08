@@ -380,7 +380,7 @@ html.ipad-layout body.practice-mode .quiz-feedback{min-height:0;overflow-y:auto;
 </head>
 <body data-theme="light">
 <div class="app">
-<aside class="sidebar"><div class="logo"><span class="logo-mark">ل</span><div><div class="logo-name">LISĀN</div><div class="logo-sub">ARABIC VOCABULARY</div></div></div><div class="side-caption">YOUR WORKSPACE</div><nav class="side-nav" id="sideNav" aria-label="Main navigation"></nav><div class="sidebar-bottom"><div class="side-goal" id="sideGoal"></div><div class="side-footer">FUSHA / MSA · A0—A1<br><span id="vocabTotal">273</span> learning words · <span data-app-version>v2.13.0</span></div></div></aside>
+<aside class="sidebar"><div class="logo"><span class="logo-mark">ل</span><div><div class="logo-name">LISĀN</div><div class="logo-sub">ARABIC VOCABULARY</div></div></div><div class="side-caption">YOUR WORKSPACE</div><nav class="side-nav" id="sideNav" aria-label="Main navigation"></nav><div class="sidebar-bottom"><div class="side-goal" id="sideGoal"></div><div class="side-footer">FUSHA / MSA · A0—A1<br><span id="vocabTotal">273</span> learning words · <span data-app-version>v2.14.0</span></div></div></aside>
 <div class="main"><main class="container"><header class="topbar"><div class="crumb">MY WORKSPACE <span>›</span> <b id="breadcrumb">Overview</b></div><div class="mobile-brand"><span class="logo-mark">ل</span><div><div class="logo-name">LISĀN</div><div class="logo-sub">ARABIC VOCABULARY</div></div></div><div class="top-actions"><div class="top-chip streak" id="streakChip"></div><div class="top-chip"><span id="topLang">EN → AR</span></div><button class="icon-button" data-page="settings" title="Settings" aria-label="Settings"><span data-svg="settings"></span></button></div></header>
 <section id="page-home" class="page">
 <div class="home-sync-alert" id="homeSyncAlert" role="status" aria-live="polite" data-severity="checking">
@@ -452,7 +452,7 @@ html.ipad-layout body.practice-mode .quiz-feedback{min-height:0;overflow-y:auto;
 <div class="overlay hidden" id="wordOverlay" role="presentation"><div class="modal" id="wordModal" role="dialog" aria-modal="true" aria-label="Word details"></div></div>
 <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
 <script>
-const APP_VERSION="2.13.0";
+const APP_VERSION="2.14.0";
 /* iPadOS normally reports a desktop-class user agent and can fall through
    the phone breakpoint. Use touch-capable Apple tablet detection rather than
    global width rules, so PC and iPhone layouts stay unchanged. */
@@ -487,7 +487,7 @@ const safeJson=(text,fallback)=>{try{return JSON.parse(text)}catch{return fallba
 const DEFAULT_SRS={preset:'standard',multiplier:1,againMin:10,firstGood:1,firstEasy:4,ease:2.5,hardFactor:1.2,easyBonus:0.8};
 const SRS_PRESETS={standard:{...DEFAULT_SRS},intensive:{...DEFAULT_SRS,preset:'intensive',multiplier:0.7,againMin:5,firstEasy:2,ease:2.3},relaxed:{...DEFAULT_SRS,preset:'relaxed',multiplier:1.5,againMin:15,firstGood:2,firstEasy:7,ease:2.7}};
 const srs=()=>({...DEFAULT_SRS,...(data.prefs.srs||{})});
-const defaults=()=>({version:2,progress:{},quizProgress:{},quizActivity:{},prefs:{lang:'en',daily:10,arSize:'1',theme:'light',speed:'0.8',voice:'auto',pronunciation:'natural',autoRead:'on',srs:{...DEFAULT_SRS}},activity:{},quizzes:[]});
+const defaults=()=>({version:2,progress:{},quizProgress:{},quizActivity:{},studyConditions:{},quizConditions:{},prefs:{lang:'en',daily:10,arSize:'1',theme:'light',speed:'0.8',voice:'auto',pronunciation:'natural',autoRead:'on',srs:{...DEFAULT_SRS}},activity:{},quizzes:[]});
 function initialData(){let d=safeJson(localStorage.getItem(STORE),null);if(d&&d.version===2&&d.progress&&typeof d.progress==='object')return {...defaults(),...d,prefs:{...defaults().prefs,...d.prefs,srs:{...DEFAULT_SRS,...(d.prefs?.srs||{})}},activity:d.activity||{},quizProgress:d.quizProgress&&typeof d.quizProgress==='object'&&!Array.isArray(d.quizProgress)?d.quizProgress:{},quizActivity:d.quizActivity&&typeof d.quizActivity==='object'&&!Array.isArray(d.quizActivity)?d.quizActivity:{}};const fresh=defaults(),old=safeJson(localStorage.getItem(LEGACY),{});if(old&&typeof old==='object'){for(const [id,p] of Object.entries(old)){if(!WORDS.some(w=>String(w.id)===id)||!p||typeof p!=='object')continue;fresh.progress[id]={...p,skip:false,ease:2.5};}if(Object.keys(fresh.progress).length)fresh._migrated=true;}return fresh;}
 let data;try{data=initialData()}catch{data=defaults()}
 const VERB_ID_REMAP={"101":41,"105":28,"119":32,"121":31,"160":48,"162":26,"163":35,"164":138,"220":40,"232":26,"233":138,"234":184,"240":161,"265":34,"268":30};
@@ -594,6 +594,33 @@ function mixReviewsAndNew(reviewItems,newItems,limit=Infinity){
 }
 function getStudyCandidates(){const mode=$('studyMode').value,words=practiceWordPool('study');if(mode==='sequence')return [...words].sort((a,b)=>a.id-b.id);if(mode==='review')return variedOrder(words.filter(due));const reviews=words.filter(due),fresh=chooseNewStudyWords(words.filter(newWord),Math.max(0,Number(data.prefs.daily)));return mixReviewsAndNew(reviews,fresh)}
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+/* Study and quiz conditions persist independently from card/quiz mastery.
+   Cloud Sync sends studyConditions and quizConditions as separate documents fields,
+   so changing a quiz option does not overwrite a study option from another device. */
+const PRACTICE_CONDITION_KEYS=['Pack','Target','Mode','Part','Level','Direction'];
+function restorePracticeConditions(){
+ for(const prefix of ['study','quiz']){
+  const stored=data[prefix+'Conditions']||{};
+  for(const key of PRACTICE_CONDITION_KEYS){
+   const control=$(prefix+key);
+   if(!control)continue;
+   const value=stored[key.toLowerCase()];
+   const valid=typeof value==='string'&&Array.from(control.options).some(o=>o.value===value);
+   control.value=valid?value:(control.options[0]?.value||'all');
+  }
+ }
+ updateFilterSummaries();
+}
+function savePracticeConditions(prefix){
+ const values={};
+ for(const key of PRACTICE_CONDITION_KEYS){
+  const control=$(prefix+key);
+  if(control)values[key.toLowerCase()]=control.value;
+ }
+ data[prefix+'Conditions']=values;
+ save();
+}
 function updateFilterSummaries(){
  const chosen=id=>{const el=$(id);if(!el)return '';const option=el.options[el.selectedIndex];return option?localizeString(option.textContent.trim()):''};
  for(const [output,prefix] of [['studyFilterState','study'],['quizFilterState','quiz']]){
@@ -782,9 +809,11 @@ function exportData(){const blob=new Blob([JSON.stringify({app:'Lisān',version:
 function importData(file){if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const x=JSON.parse(reader.result);if(!x||typeof x!=='object'||!x.progress||typeof x.progress!=='object')throw Error('Invalid backup');if(x.app!=='Lisān'&&x.app!=='Arabic100')throw Error('Unsupported file');if(!confirm('Replace all current study data with this backup? If cloud sync is active, the imported data will also sync to other devices.'))return;const fresh=defaults();for(const [id,p] of Object.entries(x.progress)){if(!WORDS.some(w=>String(w.id)===id)||!p||typeof p!=='object')continue;fresh.progress[id]={...p,star:!!p.star,skip:!!p.skip,reps:Math.max(0,Number(p.reps)||0),tries:Math.max(0,Number(p.tries)||0),interval:Math.max(0,Number(p.interval)||0),due:Number(p.due)||0,ease:Math.max(1.3,Number(p.ease)||2.5)}}if(x.app==='Lisān'){fresh.prefs={...fresh.prefs,...(x.prefs||{}),srs:{...DEFAULT_SRS,...(x.prefs?.srs||{})}};fresh.activity=x.activity&&typeof x.activity==='object'?x.activity:{};fresh.quizzes=Array.isArray(x.quizzes)?x.quizzes:[];
  fresh.quizProgress={};if(x.quizProgress&&typeof x.quizProgress==='object'&&!Array.isArray(x.quizProgress)){for(const [id,q] of Object.entries(x.quizProgress)){if(!WORDS.some(w=>String(w.id)===id)||!q||typeof q!=='object'||Array.isArray(q))continue;fresh.quizProgress[id]={...q,tries:Math.max(0,Number(q.tries)||0),reps:Math.max(0,Number(q.reps)||0),correct:Math.max(0,Number(q.correct)||0),lapses:Math.max(0,Number(q.lapses)||0),interval:Math.max(0,Number(q.interval)||0),due:Number(q.due)||0,ease:Math.max(1.3,Number(q.ease)||2.5)}}}
  fresh.quizActivity=x.quizActivity&&typeof x.quizActivity==='object'&&!Array.isArray(x.quizActivity)?x.quizActivity:{};
- fresh.quizOrderOffsets=x.quizOrderOffsets&&typeof x.quizOrderOffsets==='object'&&!Array.isArray(x.quizOrderOffsets)?x.quizOrderOffsets:{}
-}data=fresh;migrateVerbHistory();configure();save();study.started=false;quiz.items=[];navigate('home');toast('Study backup restored.')}catch(e){alert('Could not import this file. Please select a valid Lisān or Arabic100 JSON backup.')}};reader.readAsText(file)}
-function handleAction(a){if(a==='startDaily'){$('studyMode').value='daily';startStudy();navigate('study')}else if(a==='restartStudy')startStudy();else if(a==='reveal'){revealStudyAnswer()}else if(a==='restartQuiz')chooseQuizSet();else if(a==='nextQuiz'){quiz.pos++;quiz.choice=null;if(quiz.pos===quiz.items.length){data.quizzes.push({date:Date.now(),score:quiz.score,total:quiz.items.length});save()}renderQuiz()}else if(a==='clearFilters'){filter={q:'',pack:'all',status:'all',part:'all',level:'all',school:'all',sort:'part'};$('wordSearch').value='';for(const id of ['wordPack','wordStatus','wordPart','wordLevel','wordSchool','wordSort'])$(id).value=(id==='wordSort'?'part':'all');renderWords()}else if(a==='closeModal')closeModal();else if(a==='audioTest')speak('مَرْحَبًا، كَيْفَ حَالُكَ؟');else if(a==='toneTest')playTestTone();else if(a==='export')exportData();else if(a==='import')$('importFile').click();else if(a==='reset'){if(confirm('Reset ALL learning records, favorites, and settings? If cloud sync is active, the reset will also sync to your other devices. This cannot be undone.')){data=defaults();save();configure();study.started=false;quiz.items=[];syncSettings();navigate('home');toast('Progress reset.')}}}
+ fresh.quizOrderOffsets=x.quizOrderOffsets&&typeof x.quizOrderOffsets==='object'&&!Array.isArray(x.quizOrderOffsets)?x.quizOrderOffsets:{};
+ fresh.studyConditions=x.studyConditions&&typeof x.studyConditions==='object'&&!Array.isArray(x.studyConditions)?x.studyConditions:{};
+ fresh.quizConditions=x.quizConditions&&typeof x.quizConditions==='object'&&!Array.isArray(x.quizConditions)?x.quizConditions:{}
+}data=fresh;migrateVerbHistory();restorePracticeConditions();configure();save();study.started=false;quiz.items=[];navigate('home');toast('Study backup restored.')}catch(e){alert('Could not import this file. Please select a valid Lisān or Arabic100 JSON backup.')}};reader.readAsText(file)}
+function handleAction(a){if(a==='startDaily'){$('studyMode').value='daily';savePracticeConditions('study');startStudy();navigate('study')}else if(a==='restartStudy')startStudy();else if(a==='reveal'){revealStudyAnswer()}else if(a==='restartQuiz')chooseQuizSet();else if(a==='nextQuiz'){quiz.pos++;quiz.choice=null;if(quiz.pos===quiz.items.length){data.quizzes.push({date:Date.now(),score:quiz.score,total:quiz.items.length});save()}renderQuiz()}else if(a==='clearFilters'){filter={q:'',pack:'all',status:'all',part:'all',level:'all',school:'all',sort:'part'};$('wordSearch').value='';for(const id of ['wordPack','wordStatus','wordPart','wordLevel','wordSchool','wordSort'])$(id).value=(id==='wordSort'?'part':'all');renderWords()}else if(a==='closeModal')closeModal();else if(a==='audioTest')speak('مَرْحَبًا، كَيْفَ حَالُكَ؟');else if(a==='toneTest')playTestTone();else if(a==='export')exportData();else if(a==='import')$('importFile').click();else if(a==='reset'){if(confirm('Reset ALL learning records, favorites, and settings? If cloud sync is active, the reset will also sync to your other devices. This cannot be undone.')){data=defaults();restorePracticeConditions();save();configure();study.started=false;quiz.items=[];syncSettings();navigate('home');toast('Progress reset.')}}}
 function toggleSkipWord(id){
  const w=WORDS.find(x=>x.id===id);if(!w)return;
  const p=entry(id),nowExcluded=!p.skip;
@@ -824,8 +853,8 @@ function eventHandlers(){
  $('wordPack').addEventListener('change',ev=>{filter.pack=ev.target.value;renderWords()});
  $('wordStatus').addEventListener('change',ev=>{filter.status=ev.target.value;renderWords()});
  for(const [id,key] of [['wordPart','part'],['wordLevel','level'],['wordSchool','school'],['wordSort','sort']])$(id).addEventListener('change',ev=>{filter[key]=ev.target.value;renderWords()});
- for(const k of ['studyPack','studyTarget','studyMode','studyDirection','studyPart','studyLevel'])$(k).addEventListener('change',startStudy);
- for(const k of ['quizPack','quizTarget','quizMode','quizDirection','quizPart','quizLevel'])$(k).addEventListener('change',chooseQuizSet);
+ for(const k of ['studyPack','studyTarget','studyMode','studyDirection','studyPart','studyLevel'])$(k).addEventListener('change',()=>{savePracticeConditions('study');startStudy()});
+ for(const k of ['quizPack','quizTarget','quizMode','quizDirection','quizPart','quizLevel'])$(k).addEventListener('change',()=>{savePracticeConditions('quiz');chooseQuizSet()});
  const prefFields={settingLang:'lang',settingDaily:'daily',settingArabic:'arSize',settingPronunciation:'pronunciation',settingAutoRead:'autoRead',settingTheme:'theme',settingSpeed:'speed',settingVoice:'voice'};
  for(const [id,key] of Object.entries(prefFields))$(id).addEventListener('change',ev=>{data.prefs[key]=ev.target.value;configure();save();drawNavigation();if(key==='lang'||key==='pronunciation'){syncSettings();translateUI();if(current==='home')renderHome();if(current==='words')renderWords();if(current==='study')renderStudy();if(current==='quiz')renderQuiz()}toast('Preference saved.')});
  $('settingCurve').addEventListener('change',ev=>{const preset=ev.target.value;if(SRS_PRESETS[preset])data.prefs.srs={...SRS_PRESETS[preset]};else data.prefs.srs={...srs(),preset:'custom'};save();syncSettings();if(current==='study')renderStudy();toast('Review schedule saved.')});
@@ -844,9 +873,9 @@ function initialize(){
  $('wordPack').value='all';$('studyPack').value='all';$('quizPack').value='all';
  const partOptions='<option value="all">All parts of speech</option>'+PART_ORDER.filter(k=>WORDS.some(w=>w.kind===k)).map(k=>'<option value="'+k+'">'+PART[k]+'</option>').join('');
  for(const id of ['wordPart','studyPart','quizPart'])$(id).innerHTML=partOptions;
- configure();syncSettings();eventHandlers();updateFilterSummaries();navigate('home');
+ restorePracticeConditions();configure();syncSettings();eventHandlers();updateFilterSummaries();navigate('home');
  if(data._migrated){delete data._migrated;save();toast('Previous ARABIC 100 progress imported.')} 
  if('speechSynthesis' in window){speechSynthesis.getVoices();speechSynthesis.addEventListener?.('voiceschanged',()=>{refreshVoiceOptions();updateAudioStatus()})}refreshVoiceOptions();updateAudioStatus();
 }
 initialize();initLocalization();
-</script><script defer src="./cloud-sync.js?v=2.13.0"></script></body></html>
+</script><script defer src="./cloud-sync.js?v=2.14.0"></script></body></html>
