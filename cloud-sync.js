@@ -125,6 +125,55 @@ function translate(message){
  return t[message]||message;
 }
 const el=id=>document.getElementById(id);
+
+function renderHomeSyncBanner(){
+ const banner=el("homeSyncAlert"),title=el("homeSyncAlertTitle"),message=el("homeSyncAlertMessage"),button=el("homeSyncAlertButton");
+ if(!banner||!title||!message||!button)return;
+ const ja=data.prefs.lang==="jp";
+ // Login can be restored asynchronously from browser storage; don't call a
+ // previously linked device "logged out" until Firebase has checked it.
+ if(state.active&&["connected","saving"].includes(state.phase)){
+  banner.hidden=true;
+  return;
+ }
+ banner.hidden=false;
+ let severity="warning",head="",detail="",action="";
+ const busy=["loading","checking","uploading"].includes(state.phase)
+  ||(state.linkedUid&&!state.loaded&&state.phase==="signed-out");
+ if(busy){
+  severity="checking";
+  head=ja?"ログイン・同期状態を確認中":"Checking sign-in and cloud sync";
+  detail=ja?"端末内の学習データは保持されています。接続を確認しています。":"Your study data remains on this device while the connection is checked.";
+  action=ja?"同期設定":"Sync settings";
+ }else if(state.phase==="offline"){
+  severity="error";
+  head=ja?"クラウド同期が停止しています":"Cloud sync paused";
+  detail=ja?"端末内には保存されています。通信状態を確認し、設定画面から再接続してください。":"Changes are saved on this device. Check your connection and reconnect in settings.";
+  action=ja?"再接続":"Reconnect";
+ }else if(state.phase==="error"){
+  severity="error";
+  head=ja?"クラウド同期にエラーがあります":"Cloud sync error";
+  detail=ja?"学習データは端末内に保存されています。設定でエラーの詳細を確認してください。":"Your study data remains on this device. Check details in settings.";
+  action=ja?"エラー確認":"See error";
+ }else if(state.phase==="choose-cloud"||state.phase==="choose-upload"){
+  head=ja?"クラウド同期の初期設定が未完了です":"Cloud sync setup is incomplete";
+  detail=ja?"学習履歴の移行方法を設定画面で選んでください。完了するまでは端末間で同期されません。":"Choose a data migration method in settings. Devices will not sync until setup is complete.";
+  action=ja?"設定を完了":"Finish setup";
+ }else if(!state.user||!state.active){
+  head=ja?"クラウド同期にログインしていません":"Not signed in to cloud sync";
+  detail=ja?"この端末の学習履歴は他の端末に同期されません。設定画面からログインしてください。":"Your study progress on this device will not sync to other devices until you sign in.";
+  action=ja?"ログイン":"Sign in";
+ }else{
+  severity="checking";
+  head=ja?"クラウド同期の状態を確認中":"Checking cloud sync";
+  detail=ja?"端末内の記録は保存されています。":"Your study records are stored on this device.";
+  action=ja?"同期設定":"Sync settings";
+ }
+ banner.dataset.severity=severity;
+ title.textContent=head;
+ message.textContent=detail;
+ button.textContent=action;
+}
 function draw(){
  const status=el("cloudSyncStatus"),intro=el("cloudSyncIntro"),auth=el("cloudAuthForm"),choice=el("cloudSyncChoice"),connected=el("cloudSyncConnected");
  if(!status)return;
@@ -141,6 +190,7 @@ function draw(){
  if(logout)logout.hidden=!state.user;
  const pending=el("cloudSyncPending");
  if(pending)pending.textContent=state.active?(hasPending(state.pending)?"Changes waiting to sync":"Cloud sync active"):"";
+ renderHomeSyncBanner();
 }
 function messageForError(e){
  const code=String(e?.code||"");
@@ -335,6 +385,10 @@ function init(){
     }
    }catch(e){console.warn("LISĀN offline reconciliation pending",e)}
   }
+ }
+ if(state.linkedUid&&!state.loaded){
+  state.phase="loading";
+  state.status="Loading Firebase…";
  }
  state.lastSaved=snapshotOf(data);
  el("cloudAuthForm")?.addEventListener("submit",signIn);
