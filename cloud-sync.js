@@ -14,6 +14,8 @@ const cfg={
 const AUTH_LINK="lisan_cloud_link_uid_v1";
 const BACKUP_PREFIX="lisan_cloud_before_replace_";
 const PENDING_PREFIX="lisan_cloud_pending_v1_";
+const BASELINE_PREFIX="lisan_cloud_server_baseline_v1_";
+const UNTRACKED_PREFIX="lisan_cloud_untracked_v1_";
 const sections=["progress","quizProgress","activity","quizActivity","quizOrderOffsets"];
 const fields=["prefs","quizzes","verbPairsV280"];
 const state={
@@ -196,6 +198,9 @@ async function onAuth(user){
  }
 }
 function hydrate(remote){
+ if(state.linkedUid){
+  try{localStorage.setItem(BASELINE_PREFIX+state.linkedUid,JSON.stringify(snapshotOf(remote)))}catch(e){}
+ }
  const payload=applyPatch(remote,state.pending),fresh=defaults();
  data={...fresh,...payload,prefs:{...fresh.prefs,...obj(payload.prefs),srs:{...fresh.prefs.srs,...obj(payload.prefs?.srs)}}};
  try{localStorage.setItem(STORE,JSON.stringify(data))}catch(e){}
@@ -214,7 +219,7 @@ async function connect(remote,uid){
  if(state.unsub){state.unsub();state.unsub=null}
  state.linkedUid=uid;
  localStorage.setItem(AUTH_LINK,uid);
- state.pending=readPending(uid);
+ state.pending=mergePatch(readPending(uid),state.pending);
  state.active=true;
  hydrate(remote);
  setPhase("connected",hasPending(state.pending)?"Saving changes to cloud…":"Connected. Changes sync automatically.");
@@ -315,6 +320,22 @@ async function signOut(){
  setPhase("signed-out","Sign in to connect your iPhone, iPad and PC.");
 }
 function init(){
+ if(state.linkedUid){
+  state.pending=readPending(state.linkedUid);
+  // If the external sync engine failed to load while offline, the HTML app
+  // still wrote a marker. Reconstruct only the offline local changes relative
+  // to the last server-confirmed snapshot; avoid replacing another device.
+  if(localStorage.getItem(UNTRACKED_PREFIX+state.linkedUid)){
+   try{
+    const baseline=JSON.parse(localStorage.getItem(BASELINE_PREFIX+state.linkedUid)||"null");
+    if(baseline){
+     mergePatch(state.pending,changes(snapshotOf(baseline),snapshotOf(data)));
+     keepPending();
+     localStorage.removeItem(UNTRACKED_PREFIX+state.linkedUid);
+    }
+   }catch(e){console.warn("LISĀN offline reconciliation pending",e)}
+  }
+ }
  state.lastSaved=snapshotOf(data);
  el("cloudAuthForm")?.addEventListener("submit",signIn);
  el("cloudUpload")?.addEventListener("click",initialUpload);
