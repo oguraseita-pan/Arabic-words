@@ -17,7 +17,7 @@ const PENDING_PREFIX="lisan_cloud_pending_v1_";
 const BASELINE_PREFIX="lisan_cloud_server_baseline_v1_";
 const UNTRACKED_PREFIX="lisan_cloud_untracked_v1_";
 const sections=["progress","quizProgress","activity","quizActivity","quizOrderOffsets"];
-const fields=["prefs","quizzes","verbPairsV280"];
+const fields=["prefs","quizzes","verbPairsV280","studyConditions","quizConditions"];
 const state={
  loaded:false,loading:null,auth:null,db:null,user:null,uid:null,
  ref:null,unsub:null,phase:"signed-out",active:false,
@@ -34,6 +34,8 @@ function snapshotOf(d){
  value.prefs=clone(obj(d.prefs));
  value.quizzes=clone(Array.isArray(d.quizzes)?d.quizzes:[]);
  value.verbPairsV280=!!d.verbPairsV280;
+ value.studyConditions=clone(obj(d.studyConditions));
+ value.quizConditions=clone(obj(d.quizConditions));
  return value;
 }
 function eq(a,b){return JSON.stringify(a)===JSON.stringify(b)}
@@ -278,6 +280,7 @@ function hydrate(remote){
  try{localStorage.setItem(STORE,JSON.stringify(data))}catch(e){}
  state.lastSaved=snapshotOf(data);
  try{
+  if(typeof restorePracticeConditions==='function')restorePracticeConditions();
   configure();syncSettings();drawNavigation();
   if(current==="home")renderHome();
   if(current==="words")renderWords();
