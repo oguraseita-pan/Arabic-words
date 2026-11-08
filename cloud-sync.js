@@ -179,6 +179,28 @@ function draw(){
  if(!status)return;
  status.textContent=translate(state.status);
  status.dataset.state=state.phase;
+ const brief=el("cloudSyncBrief");
+ if(brief){
+  const ja=data.prefs.lang==="jp";
+  let summary="",kind="checking";
+  if(state.active&&state.phase==="connected"){
+   const pending=hasPending(state.pending);
+   summary=ja?(pending?"同期待ち":"接続済み"):(pending?"Pending changes":"Connected");
+   kind=pending?"checking":"connected";
+  }else if(state.active&&state.phase==="saving"){
+   summary=ja?"同期中":"Syncing";kind="checking";
+  }else if(state.phase==="offline"||state.phase==="error"){
+   summary=ja?"同期エラー":"Sync error";kind="error";
+  }else if(state.phase==="choose-upload"||state.phase==="choose-cloud"){
+   summary=ja?"初期設定が必要":"Setup needed";kind="warning";
+  }else if(state.phase==="signed-out"&&!state.linkedUid){
+   summary=ja?"未ログイン":"Signed out";kind="warning";
+  }else{
+   summary=ja?"接続確認中":"Checking connection";kind="checking";
+  }
+  brief.textContent=summary;
+  brief.dataset.state=kind;
+ }
  if(intro)intro.textContent=state.user?"Signed in: "+state.user.email:"Project: arabic-words-9b6ac";
  if(auth)auth.hidden=!!state.user;
  if(choice)choice.hidden=!["choose-upload","choose-cloud"].includes(state.phase);
