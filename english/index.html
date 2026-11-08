@@ -6,11 +6,13 @@
 <meta name="theme-color" content="#f5f7f2"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-<meta name="apple-mobile-web-app-title" content="LEXIS"/>
-<title>LEXIS — English Vocabulary & Chunks</title>
+<meta name="apple-mobile-web-app-title" content="WordMate"/>
+<title>WordMate — English Vocabulary & Chunks</title>
 <meta name="description" content="Personalized English words, natural chunks, TOEIC vocabulary and spaced repetition."/>
 <link rel="manifest" href="./manifest.webmanifest"/>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%23145e50'/%3E%3Ctext x='64' y='89' fill='white' font-family='Georgia' font-weight='bold' font-size='92' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E"/>
+<link rel="icon" type="image/svg+xml" href="./wordmate-icon.svg"/>
+<link rel="apple-touch-icon" href="./wordmate-icon.svg"/>
+<link rel="icon-old" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%23145e50'/%3E%3Ctext x='64' y='89' fill='white' font-family='Georgia' font-weight='bold' font-size='92' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E"/>
 <style>
 :root{--bg:#f5f7f2;--surface:#fff;--soft:#f0f4ef;--green:#146451;--green2:#0d4b3d;--mint:#ddf0e5;--text:#1b3129;--muted:#78867d;--border:#e2e8df;--red:#ac4e49;--gold:#bf8a3a;--shadow:0 12px 35px rgba(28,53,42,.045)}
 body[data-theme="dark"]{--bg:#101d18;--surface:#1c2b25;--soft:#273b32;--green:#86dcaf;--green2:#a6ebca;--mint:#244738;--text:#f0f7f1;--muted:#a9bcb0;--border:#364b3f;--red:#ffa69b;--gold:#e8c080;--shadow:0 12px 30px rgba(0,0,0,.13)}
@@ -34,23 +36,72 @@ button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}bu
 @media(max-width:1100px){.app{display:block}.sidebar{display:none}.container{max-width:930px;padding:23px 26px calc(125px + env(safe-area-inset-bottom))}.bottom-nav{position:fixed;z-index:80;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:4px;background:var(--surface);border-top:1px solid var(--border);padding:7px max(12px,calc((100% - 780px)/2)) calc(9px + env(safe-area-inset-bottom));box-shadow:0 -8px 25px #0001}.bottom-nav button{flex:1;min-width:0;border:0;background:none;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;border-radius:9px;font-size:11px;font-weight:800}.bottom-nav button.active{background:var(--soft);color:var(--green)}.bottom-nav .nav-icon{font-size:23px}.mobile-brand{display:flex;align-items:center;gap:9px;color:var(--text);font:800 20px Georgia,serif}.mobile-brand .logo-mark{width:37px;height:37px;border-radius:11px;font-size:26px}.study-dock{position:sticky;bottom:calc(75px + env(safe-area-inset-bottom));padding:8px 0;background:var(--bg);z-index:40}.practice{padding-bottom:35px}.toast{bottom:calc(92px + env(safe-area-inset-bottom))}}
 @media(max-width:700px){.container{padding:15px 16px calc(125px + env(safe-area-inset-bottom))}.topbar{margin-bottom:20px}.topbar #headerCrumb{display:none}.topbar .chip{padding:7px 10px;font-size:11px}.hero{padding:26px 25px;min-height:225px}.hero h1{font-size:30px}.hero-ornament{display:none}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.metric{padding:17px}.metric strong{font-size:27px}.pack-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.pack-card{padding:17px 14px;min-height:165px}.pack-card .pack-icon{margin-bottom:8px}.filter-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:11px}.word-grid{grid-template-columns:1fr}.analytics{grid-template-columns:1fr}.settings-grid{grid-template-columns:1fr}.sync-panel{grid-column:auto}.flashcard{padding:22px 18px;min-height:320px}.flash-stage{padding:27px 7px}.quiz-card{padding:22px 17px}.quiz-choice{min-height:76px;padding:11px}.library-controls{display:grid;grid-template-columns:1fr 1fr}.library-controls input{grid-column:1/-1;min-width:0}.library-controls select{min-width:0}.library-controls .btn{grid-column:1/-1}.modal form{grid-template-columns:1fr}.modal label{grid-column:1/-1}.modal{padding:21px}.sync-banner{flex-wrap:wrap}.sync-banner .btn{margin-left:auto}}
 @media(max-width:390px){.filter-grid{grid-template-columns:1fr 1fr}.control select{font-size:12px}.quiz-choice{font-size:12px}.grade-btn{font-size:12px}.bottom-nav button{font-size:10px}.pack-card{min-height:170px}}
+
+/* WordMate: detailed dictionary and audio-first learning controls. */
+.logo-app-icon{width:46px;height:46px;border-radius:13px;object-fit:cover;flex:0 0 auto}
+.mobile-brand .logo-app-icon{width:38px;height:38px;border-radius:11px}
+.subtle-tag{background:var(--mint);color:var(--green)}
+.detail-link{border:0;background:none;color:var(--green);font-size:12px;font-weight:800;padding:7px 0;text-align:left;display:block}
+.detail-link:hover{text-decoration:underline}
+.example-button{border:0;width:100%;text-align:left;cursor:pointer;font-size:12px}
+.example-button:hover,.flash-example:hover,.result-example:hover,.sense-example:hover{background:var(--mint)}
+.flash-term{background:transparent;border:0;color:var(--text);font-size:clamp(25px,3.3vw,42px);font-weight:800;line-height:1.35;letter-spacing:-.02em;overflow-wrap:anywhere;cursor:pointer}
+.flash-term span{font-size:16px;vertical-align:middle;color:var(--green)}
+.flash-answer-term{display:flex;flex-wrap:wrap;gap:7px 14px;align-items:center;justify-content:center}
+.flash-answer-term strong{font-size:clamp(15px,2vw,22px)}
+.flash-answer-word{border:0;background:none;color:var(--green);font-size:clamp(16px,2.2vw,25px);font-weight:850;line-height:1.4}
+.flash-example{width:100%;border:0;border-radius:12px;background:var(--soft);padding:13px 15px;text-align:center;font-size:13px;font-weight:650;margin:13px 0}
+.flash-answer .detail-link{text-align:center;width:100%;margin-top:8px}
+.clickable-question{display:block;width:100%;padding:6px;border:0;background:none;color:var(--text);cursor:pointer;font-weight:800}
+.result-word{border:0;background:none;padding:6px 0;color:var(--green);font-size:17px;font-weight:850;text-align:left}
+.result-example{display:block;width:100%;text-align:left;border:0;background:var(--soft);padding:10px 11px;border-radius:9px;margin:6px 0;font-size:12px}
+.detail-modal{max-width:710px;padding:27px 30px;box-shadow:0 22px 70px #0004}
+.detail-modal .modal-head{padding-bottom:9px;border-bottom:1px solid var(--border)}
+.detail-title{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin:20px 0 8px}
+.detail-title h2{font-size:clamp(26px,4vw,38px);line-height:1.28;letter-spacing:-.03em;overflow-wrap:anywhere;margin:0}
+.detail-title .audio-btn{font-size:12px;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px 10px}
+.detail-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:15px}
+.detail-intro{font-weight:750;font-size:16px;margin:14px 0 18px}
+.detail-section-heading{font-size:15px;margin:21px 0 11px}
+.detail-section-heading small{color:var(--muted);font-weight:600;font-size:12px}
+.sense-card{padding:16px 17px;border:1px solid var(--border);background:var(--surface);border-radius:14px;margin:11px 0}
+.sense-head{display:flex;gap:10px;align-items:center;font-size:14px}
+.sense-number{display:inline-grid;place-items:center;flex:0 0 auto;width:26px;height:26px;border-radius:50%;color:var(--green);background:var(--mint);font-size:12px;font-weight:850}
+.sense-example{display:block;width:100%;border:0;background:var(--soft);text-align:left;padding:11px 13px;border-radius:10px;font-weight:700;margin:12px 0 5px;line-height:1.65}
+.listen-glyph{color:var(--green);margin-right:4px}
+.example-ja{color:var(--muted);font-size:12px;margin:7px 0}
+.sense-explain{font-size:12px;margin:8px 0 0;color:var(--text);line-height:1.6}
+.detail-usage{background:var(--soft);padding:14px 17px;border-radius:13px;margin:13px 0}
+.detail-usage h3{margin:0 0 8px;font-size:13px}
+.detail-usage p{font-size:12px;margin:0;color:var(--text);white-space:pre-wrap}
+.related-tags{display:flex;flex-wrap:wrap;gap:7px}.related-tags span{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:5px 9px;font-size:12px}
+.detail-foot{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end;padding-top:19px;margin-top:12px;border-top:1px solid var(--border)}
+@media(max-width:700px){
+ .detail-modal{max-height:92dvh;padding:18px 16px;border-radius:17px}
+ .detail-title h2{font-size:clamp(23px,6vw,32px)}
+ .sense-card{padding:13px}.sense-example{padding:10px}
+ .flash-term{font-size:clamp(23px,6vw,34px)}
+ .word-card .detail-link{padding-top:8px}
+}
+
 </style>
 </head>
 <body>
 <div class="app">
 <aside class="sidebar">
- <div class="logo"><span class="logo-mark">L</span><div><div class="logo-name" id="brandTitle">LEXIS</div><div class="logo-sub">ENGLISH STUDIO</div></div></div>
+ <div class="logo"><img class="logo-app-icon" src="./wordmate-icon.svg" alt="WordMate icon"/><div><div class="logo-name" id="brandTitle">WordMate</div><div class="logo-sub">ENGLISH VOCABULARY</div></div></div>
  <div class="nav-label">YOUR WORKSPACE</div><nav id="sideNav" class="side-nav" aria-label="Main navigation"></nav>
- <div class="sidebar-bottom"><strong>English that sticks.</strong>Words, chunks and confidence — one review at a time.</div>
+ <div class="sidebar-bottom"><strong>Words that stick.</strong>Build your vocabulary and speak more naturally, one review at a time.</div>
 </aside>
 <main class="main"><div class="container">
- <header class="topbar"><div class="mobile-brand"><span class="logo-mark">L</span> LEXIS</div><div>Workspace / <strong id="headerCrumb">Home</strong></div><div class="topbar-right"><span class="chip">✦ <span id="headerTotal">0 items</span></span></div></header>
+ <header class="topbar"><div class="mobile-brand"><img class="logo-app-icon" src="./wordmate-icon.svg" alt=""/> WordMate</div><div>Workspace / <strong id="headerCrumb">Home</strong></div><div class="topbar-right"><span class="chip">✦ <span id="headerTotal">0 items</span></span></div></header>
  <div id="view" role="main"></div>
 </div></main>
 </div>
 <nav id="bottomNav" class="bottom-nav" aria-label="Mobile navigation"></nav>
 <div id="toast" class="toast" role="status"></div><div id="modalLayer"></div>
 <script src="./lexicon-data.js"></script>
+<script src="./wordmate-lexicon.js"></script>
 <script src="./app.js"></script>
 <script src="./cloud-sync.js"></script>
 </body>
