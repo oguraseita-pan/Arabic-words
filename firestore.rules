@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // LISĀN progress is private to the authenticated user.
+    // Only documents within /users/{uid} can be accessed by that uid.
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId;
+      }
+    }
+    // No other paths are readable or writable.
+  }
+}
