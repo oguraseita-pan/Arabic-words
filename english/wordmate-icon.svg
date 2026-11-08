@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">WordMate</title><desc id="desc">Open book on a blue rounded square, with a bright blue underline.</desc>
+<defs><linearGradient id="bg" x1=".05" y1=".04" x2=".92" y2=".98"><stop offset="0" stop-color="#277bd9"/><stop offset=".52" stop-color="#14549f"/><stop offset="1" stop-color="#092758"/></linearGradient><linearGradient id="line" x1="0" x2="1"><stop offset="0" stop-color="#25c9ff"/><stop offset="1" stop-color="#4588ff"/></linearGradient></defs>
+<rect x="10" y="10" width="492" height="492" rx="105" fill="url(#bg)"/>
+<path d="M256 166c-44-29-100-37-163-25-12 2-20 12-20 24v136c0 15 13 25 27 21 53-13 103-8 151 22 3 2 7 2 10 0 47-30 97-35 150-22 14 4 27-6 27-21V165c0-12-8-22-20-24-63-12-119-4-162 25Z" fill="none" stroke="#fff" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M256 167v169" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+<path d="M113 393c87-20 200-20 286 0" fill="none" stroke="url(#line)" stroke-width="17" stroke-linecap="round"/>
+</svg>
