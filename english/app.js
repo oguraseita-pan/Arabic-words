@@ -10,10 +10,19 @@ const SRS_LIMITS={multiplier:[.25,3],againMin:[1,240],firstGood:[.25,30],firstEa
 function configSrs(){return data.prefs.srs==='custom'?{...SRS_DEFAULT,...data.prefs.srsConfig}:{...(SRS_PRESETS[data.prefs.srs]||SRS_DEFAULT)}}
 function clampNum(v,low,high){return Math.min(high,Math.max(low,Number(v)||low))}
 function calcInterval(w,score,key='progress'){
- const old=Number(pOf(w,key).interval)||0,c=configSrs(),good=clampNum(c.firstGood,.25,30),easy=clampNum(c.firstEasy,good,90);
- const growth=clampNum(c.ease,1.3,4),hard=clampNum(c.hardFactor,1,2),bonus=clampNum(c.easyBonus,.1,2),scale=clampNum(c.multiplier,.25,3);
- const d=score===0?clampNum(c.againMin,1,240)/1440:score===1?(old?Math.max(.25,old*hard*.85):good*.5):score===2?(old?Math.max(good,old*growth):good):(old?Math.max(easy,old*(growth+bonus)):easy);
- return Math.max(1/1440,Math.min(3650,score===0?d:d*scale));
+ // Same adaptive SM-2-style interval rules as LISĀN.
+ const p=pOf(w,key),c=configSrs(),scale=Number(c.multiplier),iv=Math.max(0,Number(p.interval)||0),ease=Math.max(1.3,Number(p.ease)||Number(c.ease));
+ if(score===0)return Number(c.againMin)/1440;
+ if(iv<.1||(Number(p.reps)||0)===0){
+  if(score===1)return Math.max(.25,Number(c.firstGood)*scale*.85);
+  if(score===2)return Number(c.firstGood)*scale;
+  return Number(c.firstEasy)*scale;
+ }
+ const hard=Math.max(iv+.25,iv*Number(c.hardFactor)*scale);
+ const good=Math.max(hard+.25,iv*ease*scale);
+ if(score===1)return hard;
+ if(score===2)return good;
+ return Math.max(good+.5,iv*(ease+Number(c.easyBonus))*scale);
 }
 function intervalLabel(d){
  if(!(d>0))return txt('soon','まもなく');
@@ -33,19 +42,28 @@ function filterDetails(kind){return '<details class="filter-box" id="practiceFil
 
 const GROUPS=window.LEXICON_SETS||[], BASE=window.LEXICON_DATA||[];
 const SET_BY_ID=Object.fromEntries(GROUPS.map(s=>[s.id,s]));
-const DEFAULT={version:1,progress:{},quizProgress:{},customWords:{},activity:{},prefs:{ui:'ja',theme:'light',daily:15,voice:'en-US',speed:0.9,autoRead:true,srs:'standard',srsConfig:{...SRS_DEFAULT},prefsUpdatedAt:0},studyConditions:{set:'all',target:'all',pos:'all',mode:'dueNew',direction:'ja-en',limit:'15'},quizConditions:{set:'all',target:'all',pos:'all',mode:'dueNew',direction:'en-ja',limit:'10'}};
+const DEFAULT={version:1,progress:{},quizProgress:{},customWords:{},activity:{},sequenceOffsets:{study:{},quiz:{}},prefs:{ui:'ja',theme:'light',daily:15,voice:'en-US',speed:0.9,autoRead:true,srs:'standard',srsConfig:{...SRS_DEFAULT},prefsUpdatedAt:0},studyConditions:{set:'all',target:'all',pos:'all',mode:'dueNew',direction:'ja-en',limit:'15'},quizConditions:{set:'all',target:'all',pos:'all',mode:'dueNew',direction:'en-ja',limit:'10'}};
 const clone=x=>JSON.parse(JSON.stringify(x));
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const txt=(en,ja)=>data.prefs.ui==='ja'?ja:en;
 const dateKey=(time=Date.now())=>{const d=new Date(time);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
-function initial(){let d;try{d=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){};if(!d||d.version!==1)return clone(DEFAULT);return {...clone(DEFAULT),...d,prefs:{...DEFAULT.prefs,...d.prefs},studyConditions:{...DEFAULT.studyConditions,...d.studyConditions},quizConditions:{...DEFAULT.quizConditions,...d.quizConditions}}}
+function initial(){let d;try{d=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){};if(!d||d.version!==1)return clone(DEFAULT);return {...clone(DEFAULT),...d,prefs:{...DEFAULT.prefs,...d.prefs},studyConditions:{...DEFAULT.studyConditions,...d.studyConditions},quizConditions:{...DEFAULT.quizConditions,...d.quizConditions},sequenceOffsets:{study:{...d.sequenceOffsets?.study},quiz:{...d.sequenceOffsets?.quiz}}}}
 let data=initial(), current='home',search='',libFilter={set:'all',target:'all',pos:'all'}, session={ids:[],pos:0,shown:false,started:false},quiz={ids:[],pos:0,answered:false,selected:null,options:[],correct:0,started:false},modalId=null;
+function normalizeModes(d){
+ for(const kind of ['study','quiz']){
+  const c=d[kind+'Conditions']||(d[kind+'Conditions']={...DEFAULT[kind+'Conditions']});
+  if(c.mode==='all')c.mode='sequence';
+  if(!['dueNew','due','sequence'].includes(c.mode))c.mode='dueNew';
+ }
+ if(!d.sequenceOffsets||typeof d.sequenceOffsets!=='object')d.sequenceOffsets={study:{},quiz:{}};
+ for(const kind of ['study','quiz'])if(!d.sequenceOffsets[kind]||typeof d.sequenceOffsets[kind]!=='object')d.sequenceOffsets[kind]={};
+}
 function normalizeCustom(d){for(const w of Object.values(d.customWords||{})){if(w.set==='C')w.set='D';if(w.set==='S')w.set='B';if(!w.pos)w.pos=w.type==='C'?'expression':'noun';if(!w.senses||!w.senses.length)w.senses=[{ja:w.ja,example:w.example,exampleJa:w.exampleJa||'',explain:''}];}}
-normalizeCustom(data);
+normalizeCustom(data);normalizeModes(data);
 const all=()=>BASE.concat(Object.values(data.customWords||{}).filter(w=>!w.deleted));
 const byId=id=>all().find(w=>w.id===id);
 const pOf=(w,which='progress')=>(data[which]||{})[w.id]||{};
-const due=(w,which='progress')=>{const p=pOf(w,which);return p.tries>0 && Number(p.due||0)<=Date.now()};
+const due=(w,which='progress')=>{const p=pOf(w,which);return Number(p.tries||0)>0 && !!p.due && Number(p.due)<=Date.now()};
 const fresh=(w,which='progress')=>!(pOf(w,which).tries>0);
 const mastered=(w,which='progress')=>Number(pOf(w,which).reps||0)>=3 && Number(pOf(w,which).interval||0)>=7;
 const active=w=>!pOf(w).skip;
@@ -60,13 +78,86 @@ const setOptions=()=>[['all',txt('All sets','すべてのセット')]].concat(GR
 const posLabel=w=>{const x=(window.WORDMATE_PARTS||[]).find(p=>p.id===w.pos);return x?txt(x.en,x.ja):txt('Expression','表現')};
 const posOptions=()=>[['all',txt('All parts of speech','全品詞')]].concat((window.WORDMATE_PARTS||[]).map(p=>[p.id,txt(p.en,p.ja)]));
 const targetOptions=()=>[['all',txt('All','すべて')],['words',txt('Words','単語')],['chunks',txt('Chunks','チャンク')],['favorite',txt('Favorites','お気に入り')],['custom',txt('My additions','自主追加')]];
-const modeOptions=()=>[['dueNew',txt('Due + new','復習対象＋新規')],['due',txt('Due only','復習対象のみ')],['all',txt('All selected items','選択対象すべて')]];
+const modeOptions=()=>[['dueNew',txt('Due + new','復習＋新規')],['due',txt('Due only','復習のみ')],['sequence',txt('In order','順番通り')]];
 const directionOptions=()=>[['ja-en',txt('Japanese → English','日本語 → 英語')],['en-ja',txt('English → Japanese','英語 → 日本語')],['mixed',txt('Mixed','ランダム')]];
 function filters(kind){return '<div class="filter-grid">'+select('set',kind,txt('Study set','学習セット'),setOptions())+select('target',kind,txt('Study target','学習対象'),targetOptions())+select('pos',kind,txt('Part of speech','品詞'),posOptions())+select('mode',kind,txt('Scheduling','学習方法'),modeOptions())+select('direction',kind,txt('Direction','出題方向'),directionOptions())+select('limit',kind,txt('Session length','学習件数'),[['10','10'],['15','15'],['20','20'],['30','30'],['50','50'],['all',txt('All','すべて')]])+'</div>'}
-function chooseItems(kind){const c=data[kind+'Conditions'],pool=scope(c),progress=kind==='study'?'progress':'quizProgress';const limit=c.limit==='all'?pool.length:Math.max(1,Number(c.limit)||15);if(c.mode==='all')return shuffle(pool).slice(0,limit).map(w=>w.id);if(c.mode==='due')return shuffle(pool.filter(w=>due(w,progress))).slice(0,limit).map(w=>w.id);const reviews=shuffle(pool.filter(w=>due(w,progress))),newOnes=shuffle(pool.filter(w=>fresh(w,progress))),items=[];while(items.length<limit&&(reviews.length||newOnes.length)){if(reviews.length)items.push(reviews.shift());if(items.length<limit&&reviews.length)items.push(reviews.shift());if(items.length<limit&&newOnes.length)items.push(newOnes.shift());}return items.map(w=>w.id)}
+function chooseItems(kind){
+ const c=data[kind+'Conditions'],pool=scope(c),progress=kind==='study'?'progress':'quizProgress';
+ const limit=c.limit==='all'?pool.length:Math.max(1,Number(c.limit)||(kind==='quiz'?10:15));
+ if(c.mode==='sequence'||c.mode==='all'){
+  // LISĀN quiz uses a persistent cursor per filter. Apply it to study, too, because WordMate sessions have a size limit.
+  const ordered=pool.slice().sort((a,b)=>sequenceRank(a)-sequenceRank(b)||String(a.id).localeCompare(String(b.id),'en',{numeric:true}));
+  const key=JSON.stringify([c.set,c.target,c.pos]);
+  const cursors=data.sequenceOffsets[kind]||(data.sequenceOffsets[kind]={});
+  const from=Math.max(0,Number(cursors[key]?.index)||0)%Math.max(1,ordered.length);
+  const items=ordered.slice(from,from+limit);
+  if(ordered.length){cursors[key]={index:(from+items.length)%ordered.length,updatedAt:Date.now()};save()}
+  return items.map(w=>w.id);
+ }
+ if(c.mode==='due')return variedOrder(pool.filter(w=>due(w,progress))).slice(0,limit).map(w=>w.id);
+ const reviews=pool.filter(w=>due(w,progress));
+ const freshItems=pool.filter(w=>fresh(w,progress));
+ const maxNew=Math.max(0,Number(data.prefs.daily)||0);
+ // Study prioritizes words previously missed in quizzes, as LISĀN does.
+ const freshChoice=kind==='study'?chooseNewStudyWords(freshItems,maxNew):shuffle(freshItems).slice(0,maxNew);
+ return mixReviewsAndNew(reviews,freshChoice,limit).map(w=>w.id);
+}
+const baseOrder=Object.fromEntries(BASE.map((w,i)=>[w.id,i]));
+function sequenceRank(w){return Object.prototype.hasOwnProperty.call(baseOrder,w.id)?baseOrder[w.id]:BASE.length+Math.max(0,Number(w.createdAt||w.updatedAt)||0)/1e13}
+function variedOrder(items){
+ const pending=shuffle(items),chosen=[];
+ while(pending.length){
+  const last=chosen[chosen.length-1],previous=chosen[chosen.length-2];
+  let best=0,bestScore=-Infinity;
+  for(let i=0;i<pending.length;i++){
+   const w=pending[i];let score=Math.random()*1.7;
+   if(last){score+=(w.pos||w.type)===(last.pos||last.type)?-5:5;if(w.set!==last.set)score+=2}
+   if(previous&&(w.pos||w.type)!==(previous.pos||previous.type))score+=.65;
+   if(score>bestScore){bestScore=score;best=i}
+  }
+  chosen.push(pending.splice(best,1)[0]);
+ }
+ return chosen;
+}
+function takeVaried(items,previous){
+ if(!items.length)return null;
+ const last=previous[previous.length-1];if(!last)return items.shift();
+ let i=items.findIndex(w=>(w.pos||w.type)!==(last.pos||last.type)&&w.set!==last.set);
+ if(i<0)i=items.findIndex(w=>(w.pos||w.type)!==(last.pos||last.type));
+ if(i<0)i=0;
+ return items.splice(i,1)[0];
+}
+function mixReviewsAndNew(reviewItems,newItems,limit=Infinity){
+ const reviews=variedOrder(reviewItems),freshItems=variedOrder(newItems),mixed=[];
+ while((reviews.length||freshItems.length)&&mixed.length<limit){
+  // Match LISĀN's interleave: an available new item at positions 2, 5, 8, etc.
+  const useNew=freshItems.length&&(!reviews.length||mixed.length%3===1);
+  const queue=useNew?freshItems:reviews;
+  const selected=takeVaried(queue.length?queue:(useNew?reviews:freshItems),mixed);
+  if(selected)mixed.push(selected);
+ }
+ return mixed;
+}
+function chooseNewStudyWords(words,limit){
+ const missed=w=>{const p=pOf(w,'quizProgress');return Number(p.lastWrongAt||0)>Number(p.lastCorrectAt||0)};
+ return shuffle(words).map(w=>({w,rank:Math.pow(Math.random(),1/(missed(w)?3:1))})).sort((a,b)=>b.rank-a.rank).slice(0,limit).map(x=>x.w);
+}
 function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function gradeItem(w,score,key='progress'){const old=pOf(w,key),interval=calcInterval(w,score,key),now=Date.now();data[key][w.id]={...old,tries:(old.tries||0)+1,reps:score===0?0:(old.reps||0)+1,correct:(old.correct||0)+(score>=2?1:0),interval,lapses:(old.lapses||0)+(score===0?1:0),due:now+interval*DAY,updatedAt:now};const day=dateKey(),a=data.activity[day]||{reviews:0,quiz:0};a[key==='progress'?'reviews':'quiz']++;data.activity[day]={...a,updatedAt:now};save()}
-function flip(w){const dir=data.studyConditions.direction;return dir==='mixed'?(session.pos%2===0?'ja-en':'en-ja'):dir}
+function gradeItem(w,score,key='progress'){
+ const prev=pOf(w,key),interval=calcInterval(w,score,key),now=Date.now();
+ const ease=Math.min(3.2,Math.max(1.3,(Number(prev.ease)||Number(configSrs().ease))+(score===0?-.2:score===1?-.12:score===3?.15:0)));
+ const isQuiz=key==='quizProgress';
+ data[key][w.id]={...prev,tries:(Number(prev.tries)||0)+1,reps:(Number(prev.reps)||0)+(score===0?0:1),correct:(Number(prev.correct)||0)+(score>=2?1:0),lapses:(Number(prev.lapses)||0)+(score===0?1:0),interval,ease,due:now+interval*DAY,last:now,updatedAt:now,
+  ...(isQuiz?(score===0?{lastWrongAt:now}:{lastCorrectAt:now}):{})};
+ const day=dateKey(now),act=data.activity[day]||{reviews:0,quiz:0};
+ act[isQuiz?'quiz':'reviews']++;data.activity[day]={...act,updatedAt:now};save();
+}
+function flip(w){
+ const dir=data.studyConditions.direction;
+ if(dir!=='mixed')return dir;
+ if(!session.mixDir)session.mixDir=Math.random()<.5?'ja-en':'en-ja';
+ return session.mixDir;
+}
 function styleKind(w){return '<span class="tag">'+esc(posLabel(w))+'</span>'+(w.type==='C'?'<span class="tag subtle-tag">'+txt('CHUNK','チャンク')+'</span>':'')}
 function buttonsFor(w){const p=pOf(w);return '<div class="item-actions"><button class="'+(p.star?'marked':'')+'" data-action="star" data-id="'+esc(w.id)+'" title="Favorite" aria-label="Favorite">'+(p.star?'★':'☆')+'</button><button data-action="skip" data-id="'+esc(w.id)+'" title="Exclude from study">'+(p.skip?'↩':'⊘')+'</button>'+(w.custom?'<button data-action="edit" data-id="'+esc(w.id)+'" title="Edit">✎</button>':'')+'</div>'}
 const stats=()=>{const x=all().filter(active);return {total:x.length,words:x.filter(w=>w.type==='W').length,chunks:x.filter(w=>w.type==='C').length,seen:x.filter(w=>pOf(w).tries).length,review:x.filter(w=>due(w)).length,mastered:x.filter(w=>mastered(w)).length,favorite:x.filter(w=>pOf(w).star).length,custom:x.filter(w=>w.custom).length}};
@@ -91,7 +182,26 @@ function studyPage(){
  }
  return filterDetails('study')+'<div class="practice practice-study '+(session.started&&w?'has-dock':'')+'">'+body+'</div>';
 }
-function quizChoices(w){const c=data.quizConditions,dir=c.direction==='mixed'?(quiz.pos%2?'ja-en':'en-ja'):c.direction;const wantEn=dir==='ja-en',answer=wantEn?w.en:w.ja;const pool=shuffle(all().filter(a=>a.id!==w.id&&a.type===w.type&&a[wantEn?'en':'ja']!==answer));const selected=pool.slice(0,3);if(selected.length<3)selected.push(...shuffle(all().filter(a=>a.id!==w.id&&!selected.includes(a))).slice(0,3-selected.length));const opts=shuffle([w,...selected]).map(a=>({id:a.id,text:wantEn?a.en:a.ja}));return {opts,dir}}
+function quizChoices(w){
+ const c=data.quizConditions,dir=c.direction==='mixed'?(Math.random()<.5?'ja-en':'en-ja'):c.direction;
+ const wantEnglish=dir==='ja-en',value=a=>String(a[wantEnglish?'en':'ja']||'').trim().toLocaleLowerCase();
+ const normalize=a=>String(a||'').trim().toLocaleLowerCase();
+ const uniqueCandidates=all().filter(x=>active(x)&&x.id!==w.id&&normalize(x.en)!==normalize(w.en)&&normalize(x.ja)!==normalize(w.ja));
+ const selected=[w],seenEn=new Set([normalize(w.en)]),seenJa=new Set([normalize(w.ja)]);
+ const pickFrom=pool=>{
+  for(const x of shuffle(pool)){
+   const en=normalize(x.en),ja=normalize(x.ja);
+   if(seenEn.has(en)||seenJa.has(ja))continue;
+   seenEn.add(en);seenJa.add(ja);selected.push(x);
+   if(selected.length===4)break;
+  }
+ };
+ pickFrom(uniqueCandidates.filter(x=>x.pos===w.pos));
+ if(selected.length<4)pickFrom(uniqueCandidates.filter(x=>x.type===w.type&&!selected.includes(x)));
+ if(selected.length<4)pickFrom(uniqueCandidates.filter(x=>!selected.includes(x)));
+ const opts=shuffle(selected).map(x=>({id:x.id,text:wantEnglish?x.en:x.ja}));
+ return {opts,dir};
+}
 function startQuizQuestion(){const w=byId(quiz.ids[quiz.pos]);if(w){const p=quizChoices(w);quiz.options=p.opts;quiz.dir=p.dir;quiz.answered=false;quiz.selected=null;if(data.prefs.autoRead&&p.dir==='en-ja')speaker(w.en)}}
 function quizPage(){
  const w=byId(quiz.ids[quiz.pos]);let body='';
@@ -185,7 +295,7 @@ function render(){
  }
  document.body.dataset.theme=data.prefs.theme;document.body.classList.toggle('practice-mode',current==='study'||current==='quiz');document.documentElement.lang=data.prefs.ui==='ja'?'ja':'en';$('brandTitle').textContent='WordMate';
  const links=[['home','Home','ホーム','⌂'],['study','Study','学習','▣'],['quiz','Quiz','クイズ','✓'],['words','Library','単語一覧','▤'],['insights','Insights','記録','▥'],['settings','Settings','設定','⚙']];
- for(const id of ['sideNav','bottomNav'])$(id).innerHTML=links.filter(v=>id==='sideNav'||['home','study','quiz','words','settings'].includes(v[0])).map(v=>'<button class="'+(current===v[0]?'active':'')+'" data-action="nav" data-page="'+v[0]+'"><span class="nav-icon">'+v[3]+'</span>'+txt(v[1],v[2])+'</button>').join('');
+ for(const id of ['sideNav','bottomNav'])$(id).innerHTML=links.filter(v=>id==='sideNav'||['home','study','quiz','words','settings'].includes(v[0])).map(v=>'<button class="'+(current===v[0]?'active':'')+'" data-action="nav" data-page="'+v[0]+'"><span class="nav-icon">'+v[3]+'</span>'+(id==='bottomNav'&&v[0]==='words'?txt('List','一覧'):txt(v[1],v[2]))+'</button>').join('');
  const link=links.find(v=>v[0]===current);if($('headerCrumb'))$('headerCrumb').textContent=link?txt(link[1],link[2]):'Home';
  const pages={home,study:studyPage,quiz:quizPage,words:wordsPage,insights:insightsPage,settings:settingsPage};$('view').innerHTML=pages[current]();
  if(current==='words')libraryList();
@@ -226,8 +336,8 @@ function saveCustom(form){
  save();closeModal();render();notify(txt('Expression saved.','語句を保存しました。'));
 }
 function exportData(){const blob=new Blob([JSON.stringify({app:'WordMate',exportedAt:new Date().toISOString(),data},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='wordmate-backup-'+dateKey()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),800)}
-function importData(file){if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const x=JSON.parse(reader.result);if(!['LEXIS English Studio','WordMate'].includes(x.app)||!x.data||x.data.version!==1)throw Error('Invalid WordMate backup');if(!confirm(txt('Replace local English study data with this backup?','このバックアップで英語学習データを置き換えますか？')))return;const old=data;data={...clone(DEFAULT),...x.data,prefs:{...DEFAULT.prefs,...x.data.prefs}};try{localStorage.setItem(KEY,JSON.stringify(data));save();render();notify(txt('Backup imported.','バックアップを復元しました。'))}catch(e){data=old;throw e}}catch(e){alert(txt('Could not import: ','読み込めませんでした：')+e.message)}};reader.readAsText(file)}
-document.addEventListener('click',e=>{const btn=e.target.closest('button[data-action]');if(!btn)return;const a=btn.dataset.action,id=btn.dataset.id,w=id&&byId(id);if(a==='nav')return navigate(btn.dataset.page);if(a==='openSet'){libFilter.set=btn.dataset.set;return navigate('words')}if(a==='openType'){libFilter.target=btn.dataset.type==='C'?'chunks':'words';return navigate('words')}if(a==='star'||a==='skip'){updateStar(id,a==='star'?'star':'skip');if(modalId===id&&$('modalLayer').innerHTML.includes('detail-modal'))showDetail(id);return}if(a==='speak'&&w)return speaker(w.en);if(a==='speakExample'&&w)return speaker(w.example||w.en);if(a==='speakSense'&&w)return speaker(w.senses?.[Number(btn.dataset.sense)]?.example||w.example||w.en);if(a==='detail')return showDetail(id);if(a==='startStudy'){session={ids:chooseItems('study'),pos:0,shown:false,started:true};return render()}if(a==='reveal'){session.shown=true;if(data.prefs.autoRead){const item=byId(session.ids[session.pos]);if(item)speaker(item.en)}return render()}if(a==='grade'){const item=byId(session.ids[session.pos]);if(item)gradeItem(item,Number(btn.dataset.grade));session.pos++;session.shown=false;return render()}if(a==='startQuiz'){quiz={ids:chooseItems('quiz'),pos:0,answered:false,selected:null,options:[],correct:0,started:true};startQuizQuestion();return render()}if(a==='pick'&&!quiz.answered){const item=byId(quiz.ids[quiz.pos]);quiz.answered=true;quiz.selected=id;if(item){if(item.id===id)quiz.correct++;gradeItem(item,item.id===id?2:0,'quizProgress')}render();if(item&&data.prefs.autoRead)speaker(item.en);return}if(a==='quizNext'){quiz.pos++;startQuizQuestion();return render()}if(a==='add')return showModal();if(a==='edit')return showModal(id);if(a==='closeModal')return closeModal();if(a==='deleteCustom'&&w?.custom){if(confirm(txt('Delete this expression?','この語句を削除しますか？'))){data.customWords[id]={...w,deleted:true,updatedAt:Date.now()};save();closeModal();render()}return}if(a==='sampleAudio')return speaker('The production is coming along, but we are slightly behind schedule.');if(a==='export')return exportData();if(a==='import')return $('importFile')?.click();if(a==='reset'){if(confirm(txt('Reset all review progress and favorites? Your personal expressions will remain.','学習履歴とお気に入りを初期化しますか？自主追加語句は残ります。'))){data.progress={};data.quizProgress={};data.activity={};save();render()}return}if(a==='syncNow')return window.LEXIS_SYNC?.syncNow?.();if(a==='signOut')return window.LEXIS_SYNC?.signOut?.()});
+function importData(file){if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const x=JSON.parse(reader.result);if(!['LEXIS English Studio','WordMate'].includes(x.app)||!x.data||x.data.version!==1)throw Error('Invalid WordMate backup');if(!confirm(txt('Replace local English study data with this backup?','このバックアップで英語学習データを置き換えますか？')))return;const old=data;data={...clone(DEFAULT),...x.data,prefs:{...DEFAULT.prefs,...x.data.prefs}};normalizeCustom(data);normalizeModes(data);try{localStorage.setItem(KEY,JSON.stringify(data));save();render();notify(txt('Backup imported.','バックアップを復元しました。'))}catch(e){data=old;throw e}}catch(e){alert(txt('Could not import: ','読み込めませんでした：')+e.message)}};reader.readAsText(file)}
+document.addEventListener('click',e=>{const btn=e.target.closest('button[data-action]');if(!btn)return;const a=btn.dataset.action,id=btn.dataset.id,w=id&&byId(id);if(a==='nav')return navigate(btn.dataset.page);if(a==='openSet'){libFilter.set=btn.dataset.set;return navigate('words')}if(a==='openType'){libFilter.target=btn.dataset.type==='C'?'chunks':'words';return navigate('words')}if(a==='star'||a==='skip'){updateStar(id,a==='star'?'star':'skip');if(modalId===id&&$('modalLayer').innerHTML.includes('detail-modal'))showDetail(id);return}if(a==='speak'&&w)return speaker(w.en);if(a==='speakExample'&&w)return speaker(w.example||w.en);if(a==='speakSense'&&w)return speaker(w.senses?.[Number(btn.dataset.sense)]?.example||w.example||w.en);if(a==='detail')return showDetail(id);if(a==='startStudy'){session={ids:chooseItems('study'),pos:0,shown:false,started:true,repeats:{},mixDir:null};return render()}if(a==='reveal'){session.shown=true;if(data.prefs.autoRead){const item=byId(session.ids[session.pos]);if(item)speaker(item.en)}return render()}if(a==='grade'){if(!session.shown)return;const item=byId(session.ids[session.pos]),grade=Number(btn.dataset.grade);if(item){gradeItem(item,grade);if(grade===0&&data.studyConditions.mode!=='sequence'&&(session.repeats[item.id]||0)<1){session.repeats[item.id]=(session.repeats[item.id]||0)+1;session.ids.splice(Math.min(session.pos+4,session.ids.length),0,item.id)}}session.pos++;session.shown=false;session.mixDir=null;return render()}if(a==='startQuiz'){quiz={ids:chooseItems('quiz'),pos:0,answered:false,selected:null,options:[],correct:0,started:true};startQuizQuestion();return render()}if(a==='pick'&&!quiz.answered){const item=byId(quiz.ids[quiz.pos]);quiz.answered=true;quiz.selected=id;if(item){if(item.id===id)quiz.correct++;gradeItem(item,item.id===id?2:0,'quizProgress')}render();if(item&&data.prefs.autoRead)speaker(item.en);return}if(a==='quizNext'){quiz.pos++;startQuizQuestion();return render()}if(a==='add')return showModal();if(a==='edit')return showModal(id);if(a==='closeModal')return closeModal();if(a==='deleteCustom'&&w?.custom){if(confirm(txt('Delete this expression?','この語句を削除しますか？'))){data.customWords[id]={...w,deleted:true,updatedAt:Date.now()};save();closeModal();render()}return}if(a==='sampleAudio')return speaker('The production is coming along, but we are slightly behind schedule.');if(a==='export')return exportData();if(a==='import')return $('importFile')?.click();if(a==='reset'){if(confirm(txt('Reset all review progress and favorites? Your personal expressions will remain.','学習履歴とお気に入りを初期化しますか？自主追加語句は残ります。'))){data.progress={};data.quizProgress={};data.activity={};save();render()}return}if(a==='syncNow')return window.LEXIS_SYNC?.syncNow?.();if(a==='signOut')return window.LEXIS_SYNC?.signOut?.()});
 document.addEventListener('change',e=>{const el=e.target;if(el.dataset.config){data[el.dataset.config+'Conditions'][el.dataset.field]=el.value;data[el.dataset.config+'Conditions'].updatedAt=Date.now();session.started=false;quiz.started=false;save();render();return}if(el.dataset.lib){libFilter[el.dataset.lib]=el.value;libraryList();return}if(el.dataset.srs){
  const k=el.dataset.srs,v=Number(el.value);if(!SRS_LIMITS[k]||!Number.isFinite(v))return;
  const config={...configSrs(),[k]:clampNum(v,...SRS_LIMITS[k])};if(config.firstEasy<config.firstGood)config.firstEasy=config.firstGood;
@@ -238,4 +348,4 @@ document.addEventListener('toggle',e=>{const v=e.target;if(v?.id==='practiceFilt
 document.addEventListener('input',e=>{if(e.target.id==='wordSearch'){search=e.target.value;libraryList()}});
 document.addEventListener('submit',e=>{if(e.target.id==='customForm'){e.preventDefault();saveCustom(e.target)}else if(e.target.id==='syncLogin'){e.preventDefault();window.LEXIS_SYNC?.signIn?.($('syncEmail').value,$('syncPassword').value)}});
 render();
-window.LEXIS_APP={getData:()=>data,setData:d=>{data={...clone(DEFAULT),...d,prefs:{...DEFAULT.prefs,...d.prefs},studyConditions:{...DEFAULT.studyConditions,...d.studyConditions},quizConditions:{...DEFAULT.quizConditions,...d.quizConditions}};normalizeCustom(data);try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){};render()},notify,render,KEY};
+window.LEXIS_APP={getData:()=>data,setData:d=>{data={...clone(DEFAULT),...d,prefs:{...DEFAULT.prefs,...d.prefs},studyConditions:{...DEFAULT.studyConditions,...d.studyConditions},quizConditions:{...DEFAULT.quizConditions,...d.quizConditions}};normalizeCustom(data);normalizeModes(data);try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){};render()},notify,render,KEY};
