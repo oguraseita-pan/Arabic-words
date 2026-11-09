@@ -68,7 +68,7 @@ function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=
 function gradeItem(w,score,key='progress'){const old=pOf(w,key),interval=calcInterval(w,score,key),now=Date.now();data[key][w.id]={...old,tries:(old.tries||0)+1,reps:score===0?0:(old.reps||0)+1,correct:(old.correct||0)+(score>=2?1:0),interval,lapses:(old.lapses||0)+(score===0?1:0),due:now+interval*DAY,updatedAt:now};const day=dateKey(),a=data.activity[day]||{reviews:0,quiz:0};a[key==='progress'?'reviews':'quiz']++;data.activity[day]={...a,updatedAt:now};save()}
 function flip(w){const dir=data.studyConditions.direction;return dir==='mixed'?(session.pos%2===0?'ja-en':'en-ja'):dir}
 function styleKind(w){return '<span class="tag">'+esc(posLabel(w))+'</span>'+(w.type==='C'?'<span class="tag subtle-tag">'+txt('CHUNK','チャンク')+'</span>':'')}
-function buttonsFor(w){const p=pOf(w);return '<div class="item-actions"><button data-action="speak" data-id="'+esc(w.id)+'" aria-label="Play pronunciation" title="Play pronunciation">🔊</button><button class="'+(p.star?'marked':'')+'" data-action="star" data-id="'+esc(w.id)+'" title="Favorite" aria-label="Favorite">'+(p.star?'★':'☆')+'</button><button data-action="skip" data-id="'+esc(w.id)+'" title="Exclude from study">'+(p.skip?'↩':'⊘')+'</button>'+(w.custom?'<button data-action="edit" data-id="'+esc(w.id)+'" title="Edit">✎</button>':'')+'</div>'}
+function buttonsFor(w){const p=pOf(w);return '<div class="item-actions"><button class="'+(p.star?'marked':'')+'" data-action="star" data-id="'+esc(w.id)+'" title="Favorite" aria-label="Favorite">'+(p.star?'★':'☆')+'</button><button data-action="skip" data-id="'+esc(w.id)+'" title="Exclude from study">'+(p.skip?'↩':'⊘')+'</button>'+(w.custom?'<button data-action="edit" data-id="'+esc(w.id)+'" title="Edit">✎</button>':'')+'</div>'}
 const stats=()=>{const x=all().filter(active);return {total:x.length,words:x.filter(w=>w.type==='W').length,chunks:x.filter(w=>w.type==='C').length,seen:x.filter(w=>pOf(w).tries).length,review:x.filter(w=>due(w)).length,mastered:x.filter(w=>mastered(w)).length,favorite:x.filter(w=>pOf(w).star).length,custom:x.filter(w=>w.custom).length}};
 const tile=(label,n,small)=>'<div class="card metric"><small>'+label+'</small><strong>'+n+'</strong><span>'+small+'</span></div>';
 function home(){const s=stats(),today=data.activity[dateKey()]?.reviews||0;return '<div id="homeSyncAlert" class="sync-banner" hidden><span>☁</span><div><strong id="syncAlertTitle"></strong><small id="syncAlertDescription"></small></div><button class="btn" data-action="nav" data-page="settings">'+txt('Open settings','設定へ')+'</button></div><section class="hero"><div class="hero-content"><span class="hero-eyebrow">WORDMATE · ENGLISH VOCABULARY</span><h1>'+txt('Learn the English you actually use.','実際に使う英語を身につける。')+'</h1><p>'+txt('High-value words and natural chunks for daily life, business, TOEIC and sales. Review with spaced repetition.','日常・ビジネス・TOEIC・営業で使う実践的な単語とチャンクを、忘却曲線に沿って学習。')+'</p><button class="btn" data-action="nav" data-page="study">'+txt('Start flashcards','学習を始める')+' →</button></div><div class="hero-ornament">Aa<br><i>↗</i></div></section><div class="stats-grid">'+tile(txt('Items studied','学習済み'),s.seen,s.total+' '+txt('in library','語句を収録'))+tile(txt('Due today','本日の復習'),s.review,txt('ready for review','復習対象'))+tile(txt('Mastered','定着'),s.mastered,txt('long-term memory','長期記憶'))+tile(txt('Today','本日'),today,txt('of '+data.prefs.daily+' daily reviews','目標 '+data.prefs.daily+' 件'))+'</div><div class="home-shortcuts"><button class="btn" data-action="nav" data-page="insights">▥ '+txt('Progress','学習記録')+'</button><button class="btn" data-action="nav" data-page="settings">⚙ '+txt('Settings','設定')+'</button></div><div class="section-heading"><h2>'+txt('Your study sets','学習セット')+'</h2><button class="text-link" data-action="nav" data-page="words">'+txt('See all items','すべて表示')+'</button></div><div class="pack-grid">'+GROUPS.map(g=>{const items=all().filter(w=>w.set===g.id),n=items.filter(w=>pOf(w).tries).length;return '<button class="card pack-card" data-action="openSet" data-set="'+g.id+'"><span class="pack-icon">'+g.icon+'</span><strong>'+g.title+'</strong><small>'+g.description+'</small><div class="pack-count">'+n+' / '+items.length+'</div><div class="rail"><span style="width:'+(items.length?100*n/items.length:0)+'%"></span></div></button>'}).join('')+'</div><div class="tip card"><strong>'+txt('Why chunks matter','チャンクを学ぶ理由')+'</strong><p>'+txt('Learn complete, reusable phrases such as “I see your point, but ...” instead of isolated dictionary meanings.','I see your point, but ... のように、そのまま会話で使えるまとまりを覚えます。')+'</p><button class="text-link" data-action="openType" data-type="C">'+txt('Explore chunks','チャンクを見る')+' →</button></div>'}
@@ -80,43 +80,48 @@ function studyPage(){
  else if(!w)body='<div class="empty"><h2>'+txt('Session complete!','学習完了！')+'</h2><p>'+txt('Your review schedule is saved.','次の復習予定を記録しました。')+'</p><button class="btn primary" data-action="startStudy">'+txt('Study again','もう一度学習')+'</button></div>';
  else{
   const dir=flip(w),front=dir==='ja-en'?w.ja:w.en,back=dir==='ja-en'?w.en:w.ja;
-  const frontHTML=dir==='en-ja'?'<button class="flash-term" data-action="speak" data-id="'+esc(w.id)+'">'+esc(front)+' <span>🔊</span></button>':'<h2>'+esc(front)+'</h2>';
+  const frontHTML=dir==='en-ja'?'<button class="flash-term" data-action="speak" data-id="'+esc(w.id)+'">'+esc(front)+' </button>':'<h2>'+esc(front)+'</h2>';
   body='<div class="study-progress"><strong>'+(session.pos+1)+' / '+session.ids.length+'</strong><span>'+txt('Recall before revealing','答えを思い出してから表示')+'</span></div><div class="rail"><span style="width:'+(100*session.pos/session.ids.length)+'%"></span></div>'+
   '<article class="card flashcard"><div class="flash-top">'+styleKind(w)+'<span>'+esc(SET_BY_ID[w.set]?.title||'Personal')+'</span></div>'+
   '<div class="flash-stage">'+frontHTML+'<small>'+(dir==='ja-en'?txt('Say it in English','英語で言ってみましょう'):txt('What does it mean?','意味を思い出しましょう'))+'</small></div>'+
-  (session.shown?'<div class="flash-answer"><div class="flash-answer-term">'+(dir==='ja-en'?'<button class="flash-answer-word" data-action="speak" data-id="'+esc(w.id)+'">🔊 '+esc(w.en)+'</button><strong>'+esc(w.ja)+'</strong>':'<strong>'+esc(back)+'</strong><button class="flash-answer-word" data-action="speak" data-id="'+esc(w.id)+'">🔊 '+esc(w.en)+'</button>')+'</div>'+
-  '<button class="flash-example" data-action="speakExample" data-id="'+esc(w.id)+'">🔊 '+esc(w.example||'')+'</button><small>'+esc(w.note||'')+'</small>'+
+  (session.shown?'<div class="flash-answer"><div class="flash-answer-term">'+(dir==='ja-en'?'<button class="flash-answer-word" data-action="speak" data-id="'+esc(w.id)+'">'+esc(w.en)+'</button><strong>'+esc(w.ja)+'</strong>':'<strong>'+esc(back)+'</strong><button class="flash-answer-word" data-action="speak" data-id="'+esc(w.id)+'">'+esc(w.en)+'</button>')+'</div>'+
+  '<button class="flash-example" data-action="speakExample" data-id="'+esc(w.id)+'">'+esc(w.example||'')+'</button><small>'+esc(w.note||'')+'</small>'+
   '<button class="detail-link" data-action="detail" data-id="'+esc(w.id)+'">'+txt('Full meanings & examples','すべての意味・例文を見る')+' →</button></div>':'')+'</article>'+
   '<div class="study-dock">'+(session.shown?'<div class="study-buttons">'+[['0',txt('Again','もう一度')],['1',txt('Hard','難しい')],['2',txt('Good','できた')],['3',txt('Easy','簡単')]].map(x=>'<button class="grade-btn grade-'+x[0]+'" data-action="grade" data-grade="'+x[0]+'"><span>'+x[1]+'</span><small>'+intervalLabel(calcInterval(w,Number(x[0])))+'</small></button>').join('')+'</div>':'<button class="btn primary wide" data-action="reveal">'+txt('Show answer','答えを見る')+'</button>')+'</div>';
  }
- return heading('FLASHCARDS',txt('Spaced repetition','忘却曲線で学ぶ'),txt('Tap words and examples to hear natural English.','英語・例文をタップすると音声が流れます。'))+filterDetails('study')+'<div class="practice">'+body+'</div>';
+ return filterDetails('study')+'<div class="practice practice-study '+(session.started&&w?'has-dock':'')+'">'+body+'</div>';
 }
 function quizChoices(w){const c=data.quizConditions,dir=c.direction==='mixed'?(quiz.pos%2?'ja-en':'en-ja'):c.direction;const wantEn=dir==='ja-en',answer=wantEn?w.en:w.ja;const pool=shuffle(all().filter(a=>a.id!==w.id&&a.type===w.type&&a[wantEn?'en':'ja']!==answer));const selected=pool.slice(0,3);if(selected.length<3)selected.push(...shuffle(all().filter(a=>a.id!==w.id&&!selected.includes(a))).slice(0,3-selected.length));const opts=shuffle([w,...selected]).map(a=>({id:a.id,text:wantEn?a.en:a.ja}));return {opts,dir}}
 function startQuizQuestion(){const w=byId(quiz.ids[quiz.pos]);if(w){const p=quizChoices(w);quiz.options=p.opts;quiz.dir=p.dir;quiz.answered=false;quiz.selected=null;if(data.prefs.autoRead&&p.dir==='en-ja')speaker(w.en)}}
 function quizPage(){
  const w=byId(quiz.ids[quiz.pos]);let body='';
- if(!quiz.started)body='<div class="empty"><h2>'+txt('Four choices. One best answer.','4択で知識を確認')+'</h2><p>'+txt('Quiz history has its own review schedule.','クイズには独立した復習記録を使用します。')+'</p><button class="btn primary" data-action="startQuiz">'+txt('Start quiz','クイズ開始')+'</button></div>';
+ if(!quiz.started)body='<div class="empty"><h2>'+txt('Four choices. One best answer.','4択で知識を確認')+'</h2><p>'+txt('Quiz history has its own review schedule.','クイズには独立した復習履歴を使用します。')+'</p><button class="btn primary" data-action="startQuiz">'+txt('Start quiz','クイズ開始')+'</button></div>';
  else if(!w)body='<div class="empty"><h2>'+txt('Quiz complete','クイズ終了')+'</h2><p>'+txt('Correct answers: ','正答数：')+quiz.correct+' / '+quiz.ids.length+'</p><button class="btn primary" data-action="startQuiz">'+txt('Try again','もう一度')+'</button></div>';
  else{
-  const question=quiz.dir==='ja-en'?'<h2 class="quiz-question">'+esc(w.ja)+'</h2>':'<button class="quiz-question clickable-question" data-action="speak" data-id="'+esc(w.id)+'">🔊 '+esc(w.en)+'</button>';
-  body='<div class="study-progress"><strong>'+(quiz.pos+1)+' / '+quiz.ids.length+'</strong><span>'+txt('Correct: ','正答：')+quiz.correct+'</span></div><div class="rail"><span style="width:'+(quiz.pos/quiz.ids.length*100)+'%"></span></div>'+
-  '<div class="card quiz-card"><span class="kicker">'+txt('CHOOSE THE BEST ANSWER','正しい答えを選択')+'</span>'+question+
-  '<div class="quiz-grid">'+quiz.options.map(c=>'<button class="quiz-choice '+(quiz.answered?(c.id===w.id?'correct':c.id===quiz.selected?'incorrect':''):'')+'" data-action="pick" data-id="'+esc(c.id)+'" '+(quiz.answered?'disabled':'')+'>'+esc(c.text)+'</button>').join('')+'</div>'+
-  (quiz.answered?'<div class="quiz-feedback"><strong>'+(quiz.selected===w.id?txt('Correct!','正解！'):txt('Review this expression','確認しましょう'))+'</strong>'+
-  '<button class="result-word" data-action="speak" data-id="'+esc(w.id)+'">🔊 '+esc(w.en)+'</button><p>'+esc(w.ja)+'</p>'+
-  '<button class="result-example" data-action="speakExample" data-id="'+esc(w.id)+'">🔊 '+esc(w.example||'')+'</button><div class="next-review-note"><span>⏱ '+txt('Next quiz review','次回のクイズ復習')+'</span><strong>'+intervalLabel(Number(pOf(w,'quizProgress').interval)||0)+txt(' later','後')+'</strong></div>'+
-  '<button class="detail-link" data-action="detail" data-id="'+esc(w.id)+'">'+txt('View full details','詳しい意味・例文を見る')+' →</button></div>'+
-  '<button class="btn primary wide" data-action="quizNext">'+txt('Next question','次の問題')+' →</button>':'')+'</div>';
+  const question=quiz.dir==='ja-en'?'<h2 class="quiz-question">'+esc(w.ja)+'</h2>':'<button class="quiz-question clickable-question tap-to-speak" data-action="speak" data-id="'+esc(w.id)+'" aria-label="Read English aloud">'+esc(w.en)+'</button>';
+  const feedback=quiz.answered?'<div class="quiz-feedback"><strong>'+(quiz.selected===w.id?txt('✓ Correct!','✓ 正解！'):txt('✕ Review this expression','✕ もう一度確認'))+'</strong>'+
+    '<button class="result-word tap-to-speak" data-action="speak" data-id="'+esc(w.id)+'">'+esc(w.en)+'</button>'+
+    '<p>'+esc(w.ja)+'</p>'+
+    (w.example?'<button class="result-example tap-to-speak" data-action="speakExample" data-id="'+esc(w.id)+'">'+esc(w.example)+'</button>':'')+
+    '<div class="next-review-note"><span>'+txt('Next quiz review','次回のクイズ復習')+'</span><strong>'+intervalLabel(Number(pOf(w,'quizProgress').interval)||0)+txt(' later','後')+'</strong></div>'+
+    '<button class="detail-link" data-action="detail" data-id="'+esc(w.id)+'">'+txt('Full meaning & examples','詳しい意味・例文を見る')+' →</button></div>':'';
+  body='<div class="study-progress"><strong>'+txt('QUESTION ','問題 ')+(quiz.pos+1)+' / '+quiz.ids.length+'</strong><span>'+txt('Correct: ','正答：')+quiz.correct+'</span></div>'+
+    '<div class="rail"><span style="width:'+(quiz.pos/quiz.ids.length*100)+'%"></span></div>'+
+    '<article class="card quiz-card'+(quiz.answered?' answered':'')+'"><div class="quiz-card-top"><span>'+styleKind(w)+'</span><span>'+esc(SET_BY_ID[w.set]?.title||'Personal')+'</span></div>'+
+    '<div class="quiz-prompt">'+txt('CHOOSE THE BEST ANSWER','正しい答えを選択')+'</div><div class="quiz-focus">'+question+'</div>'+feedback+'</article>'+
+    '<div class="quiz-dock" role="group" aria-label="'+txt('Four choices','4つの選択肢')+'"><div class="quiz-grid">'+quiz.options.map(c=>
+      '<button class="quiz-choice '+(quiz.answered?(c.id===w.id?'correct':c.id===quiz.selected?'incorrect':''):'')+'" data-action="pick" data-id="'+esc(c.id)+'" '+(quiz.answered?'disabled':'')+'>'+esc(c.text)+'</button>').join('')+'</div>'+
+      (quiz.answered?'<div class="quiz-next-row"><span>'+(quiz.selected===w.id?txt('✓ Correct','✓ 正解'):txt('✕ Review','✕ 要復習'))+'</span><button class="btn primary" data-action="quizNext">'+(quiz.pos+1===quiz.ids.length?txt('View results','結果を見る'):txt('Next question','次の問題'))+' →</button></div>':'')+'</div>';
  }
- return heading('QUICK QUIZ',txt('Four-choice practice','4択クイズ'),txt('Tap English words and examples to play audio.','英語や例文をタップすると音声が流れます。'))+filterDetails('quiz')+'<div class="practice">'+body+'</div>';
+ return filterDetails('quiz')+'<div class="practice practice-quiz '+(quiz.started&&w?'has-dock':'')+'">'+body+'</div>';
 }
 function matching(){const q=search.toLowerCase().trim();return all().filter(w=>(libFilter.set==='all'||w.set===libFilter.set)&&(libFilter.pos==='all'||w.pos===libFilter.pos)&&inTarget(w,libFilter.target)&&(!q||[w.en,w.ja,w.example,w.note,...(w.senses||[]).map(s=>s.ja)].join(' ').toLowerCase().includes(q)))}
 function wordCard(w){
  const p=pOf(w),status=p.skip?txt('Excluded','学習対象外'):p.tries?mastered(w)?txt('Mastered','定着'):due(w)?txt('Due','復習予定'):txt('Learning','学習中'):txt('New','未学習');
  return '<article class="card word-card"><div class="word-card-top">'+styleKind(w)+'<span class="tag">'+esc(SET_BY_ID[w.set]?.title||'My words')+'</span></div>'+
- '<button class="term-btn" data-action="speak" data-id="'+esc(w.id)+'">'+esc(w.en)+' <span>🔊</span></button>'+
+ '<button class="term-btn" data-action="speak" data-id="'+esc(w.id)+'">'+esc(w.en)+' </button>'+
  '<strong class="ja-meaning">'+esc(w.ja)+'</strong>'+
- '<button class="example example-button" data-action="speakExample" data-id="'+esc(w.id)+'" title="Tap to hear the example">🔊 '+esc(w.example||'')+'</button>'+
+ '<button class="example example-button" data-action="speakExample" data-id="'+esc(w.id)+'" title="Tap to hear the example">'+esc(w.example||'')+'</button>'+
  '<div class="word-footer"><span class="word-status">'+status+'</span>'+buttonsFor(w)+'</div>'+
  '<button class="detail-link" data-action="detail" data-id="'+esc(w.id)+'">'+txt('View meanings, examples & usage','意味・例文・使い方を見る')+' →</button></article>';
 }
@@ -126,11 +131,11 @@ function showDetail(id){
  const senses=(w.senses&&w.senses.length?w.senses:[{ja:w.ja,example:w.example,exampleJa:w.exampleJa||"",explain:""}]);
  const content=senses.map((se,i)=>
  '<section class="sense-card"><div class="sense-head"><span class="sense-number">'+(i+1)+'</span><strong>'+esc(se.ja||w.ja)+'</strong></div>'+
- (se.example?'<button class="sense-example" data-action="speakSense" data-id="'+esc(id)+'" data-sense="'+i+'" aria-label="Play example pronunciation"><span class="listen-glyph">🔊</span> '+esc(se.example)+'</button>':'')+
+ (se.example?'<button class="sense-example" data-action="speakSense" data-id="'+esc(id)+'" data-sense="'+i+'" aria-label="Play example pronunciation"><span class="listen-glyph"></span> '+esc(se.example)+'</button>':'')+
  (se.exampleJa?'<p class="example-ja">'+esc(se.exampleJa)+'</p>':'')+
  (se.explain?'<p class="sense-explain">'+esc(se.explain)+'</p>':'')+'</section>').join("");
  $('modalLayer').innerHTML='<div class="overlay" role="presentation"><article class="modal detail-modal" role="dialog" aria-modal="true" aria-label="'+esc(w.en)+'"><div class="modal-head"><span class="kicker">'+txt('VOCABULARY DETAIL','単語・チャンク詳細')+'</span><button data-action="closeModal" aria-label="Close">✕</button></div>'+
- '<div class="detail-title"><h2>'+esc(w.en)+'</h2><button class="audio-btn" data-action="speak" data-id="'+esc(id)+'" aria-label="Play English pronunciation">🔊 '+txt('Listen','音声')+'</button></div>'+
+ '<div class="detail-title"><button class="detail-word-tap" data-action="speak" data-id="'+esc(id)+'" aria-label="Read English aloud">'+esc(w.en)+'</button></div>'+
  '<div class="detail-meta">'+styleKind(w)+'<span class="tag">'+esc(SET_BY_ID[w.set]?.title||'Personal')+'</span>'+(w.level?'<span class="tag">'+esc(w.level)+'</span>':'')+'</div>'+
  '<p class="detail-intro">'+esc(w.jp||'')+'</p>'+
  '<h3 class="detail-section-heading">'+txt('Meanings & examples','意味・例文')+' <small>('+senses.length+')</small></h3>'+content+
@@ -156,7 +161,7 @@ function settingsPage(){
  field('voice',txt('English accent','英語アクセント'),[['en-US','US English'],['en-GB','UK English']])+
  field('speed',txt('Speech speed','読み上げ速度'),[[.75,'0.75×'],[.9,'0.90×'],[1,'1.00×'],[1.15,'1.15×']])+
  field('autoRead',txt('Automatic answer audio','自動読み上げ'),[[true,txt('On','オン')],[false,txt('Off','オフ')]])+
- '<button class="btn" data-action="sampleAudio">🔊 '+txt('Test pronunciation','音声テスト')+'</button></article>'+
+ '<button class="btn" data-action="sampleAudio">'+txt('Test pronunciation','音声テスト')+'</button></article>'+
  '<article class="card settings-panel srs-panel"><h2>'+txt('Spaced repetition / forgetting curve','忘却曲線・復習間隔の設定')+'</h2>'+
  '<p>'+txt('Select a preset or adjust the detailed intervals. Changes apply only to future answers.','プリセットを選択するか、復習間隔を細かく調整してください。変更は今後の回答から適用されます。')+'</p>'+
  field('srs',txt('Review schedule','復習スケジュール'),[['standard',txt('Balanced','標準')],['intensive',txt('Intensive','集中')],['relaxed',txt('Relaxed','ゆったり')],['custom',txt('Custom','カスタム')]])+
@@ -178,14 +183,14 @@ function render(){
   const k=el.dataset.practiceKind;
   if(filterOpen[k]!==!!el.open){filterOpen[k]=!!el.open;saveFilterOpen()}
  }
- document.body.dataset.theme=data.prefs.theme;document.documentElement.lang=data.prefs.ui==='ja'?'ja':'en';$('brandTitle').textContent='WordMate';
+ document.body.dataset.theme=data.prefs.theme;document.body.classList.toggle('practice-mode',current==='study'||current==='quiz');document.documentElement.lang=data.prefs.ui==='ja'?'ja':'en';$('brandTitle').textContent='WordMate';
  const links=[['home','Home','ホーム','⌂'],['study','Study','学習','▣'],['quiz','Quiz','クイズ','✓'],['words','Library','単語一覧','▤'],['insights','Insights','記録','▥'],['settings','Settings','設定','⚙']];
  for(const id of ['sideNav','bottomNav'])$(id).innerHTML=links.filter(v=>id==='sideNav'||['home','study','quiz','words','settings'].includes(v[0])).map(v=>'<button class="'+(current===v[0]?'active':'')+'" data-action="nav" data-page="'+v[0]+'"><span class="nav-icon">'+v[3]+'</span>'+txt(v[1],v[2])+'</button>').join('');
- const link=links.find(v=>v[0]===current);$('headerCrumb').textContent=link?txt(link[1],link[2]):'Home';
+ const link=links.find(v=>v[0]===current);if($('headerCrumb'))$('headerCrumb').textContent=link?txt(link[1],link[2]):'Home';
  const pages={home,study:studyPage,quiz:quizPage,words:wordsPage,insights:insightsPage,settings:settingsPage};$('view').innerHTML=pages[current]();
  if(current==='words')libraryList();
  if(current==='home'||current==='settings')window.LEXIS_SYNC?.render?.();
- $('headerTotal').textContent=all().length+' '+txt('items','語句');
+ if($('headerTotal'))$('headerTotal').textContent=all().length+' '+txt('items','語句');
 }
 function navigate(page){current=page;render();window.scrollTo({top:0,behavior:'instant'})}
 function updateStar(id,field){const p={...pOf({id}),[field]:!pOf({id})[field],updatedAt:Date.now()};data.progress[id]=p;save();if(current==='words'){libraryList()}else render()}
