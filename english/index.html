@@ -83,6 +83,37 @@ button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}bu
  .word-card .detail-link{padding-top:8px}
 }
 
+
+/* WordMate: phone navigation, memory review controls */
+.mobile-settings-link{display:none}
+.home-shortcuts{display:flex;gap:9px;flex-wrap:wrap;margin:15px 0}
+.srs-panel{grid-column:1/-1}
+.srs-panel p,.srs-panel .setting-row small{color:var(--muted);font-size:12px;line-height:1.6}
+.srs-panel .setting-row small{display:block;margin-top:4px;font-size:11px}
+.srs-panel .setting-row select{width:148px;max-width:45%;flex-shrink:0}
+.srs-preview{border-radius:13px;padding:15px;margin-top:13px;background:var(--mint)}
+.srs-preview>strong{display:block;margin-bottom:12px;font-size:13px}
+.srs-preview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.srs-preview-grid>div{background:var(--surface);border-radius:9px;padding:9px 5px;display:flex;align-items:center;flex-direction:column;gap:5px}
+.srs-preview-grid small{font-size:11px;color:var(--muted)}
+.srs-preview-grid strong{font-size:14px;color:var(--green)}
+.srs-note{font-size:11px!important;background:var(--soft);padding:13px;border-radius:11px;margin-top:12px!important}
+.grade-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0}
+.grade-btn small{font-size:10px;white-space:nowrap;font-weight:700}
+.next-review-note{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px;border-radius:10px;background:var(--mint);margin:12px 0;font-size:12px}
+.next-review-note strong{color:var(--green);font-size:13px}
+@media(max-width:1100px){
+ .mobile-settings-link{display:grid;place-items:center;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:11px;width:42px;height:42px;font-size:21px}
+}
+@media(max-width:700px){
+ .srs-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .srs-panel .setting-row{align-items:flex-start;gap:9px}
+ .srs-panel .setting-row select{max-width:48%;min-width:0;font-size:12px}
+ .settings-panel{padding:18px 15px}
+ .home-shortcuts .btn{flex:1;min-width:145px}
+ .grade-btn{min-height:54px}
+}
+
 </style>
 </head>
 <body>
@@ -93,7 +124,7 @@ button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}bu
  <div class="sidebar-bottom"><strong>Words that stick.</strong>Build your vocabulary and speak more naturally, one review at a time.</div>
 </aside>
 <main class="main"><div class="container">
- <header class="topbar"><div class="mobile-brand"><img class="logo-app-icon" src="./wordmate-apple-icon.png" alt=""/> WordMate</div><div>Workspace / <strong id="headerCrumb">Home</strong></div><div class="topbar-right"><span class="chip">✦ <span id="headerTotal">0 items</span></span></div></header>
+ <header class="topbar"><div class="mobile-brand"><img class="logo-app-icon" src="./wordmate-apple-icon.png" alt=""/> WordMate</div><div>Workspace / <strong id="headerCrumb">Home</strong></div><div class="topbar-right"><span class="chip">✦ <span id="headerTotal">0 items</span></span><button class="mobile-settings-link" data-action="nav" data-page="settings" aria-label="設定を開く">⚙</button></div></header>
  <div id="view" role="main"></div>
 </div></main>
 </div>
