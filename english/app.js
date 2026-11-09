@@ -247,7 +247,7 @@ function showDetail(id){
  $('modalLayer').innerHTML='<div class="overlay" role="presentation"><article class="modal detail-modal" role="dialog" aria-modal="true" aria-label="'+esc(w.en)+'"><div class="modal-head"><span class="kicker">'+txt('VOCABULARY DETAIL','単語・チャンク詳細')+'</span><button data-action="closeModal" aria-label="Close">✕</button></div>'+
  '<div class="detail-title"><button class="detail-word-tap" data-action="speak" data-id="'+esc(id)+'" aria-label="Read English aloud">'+esc(w.en)+'</button></div>'+
  '<div class="detail-meta">'+styleKind(w)+'<span class="tag">'+esc(SET_BY_ID[w.set]?.title||'Personal')+'</span>'+(w.level?'<span class="tag">'+esc(w.level)+'</span>':'')+'</div>'+
- '<p class="detail-intro">'+esc(w.jp||'')+'</p>'+
+ '<p class="detail-intro">'+esc(w.ja||'')+'</p>'+
  '<h3 class="detail-section-heading">'+txt('Meanings & examples','意味・例文')+' <small>('+senses.length+')</small></h3>'+content+
  (w.note?'<section class="detail-usage"><h3>'+txt('Grammar & usage notes','文法・使い方のポイント')+'</h3><p>'+esc(w.note)+'</p></section>':'')+
  (w.related?.length?'<section class="detail-usage"><h3>'+txt('Related expressions & word forms','関連表現・派生語')+'</h3><div class="related-tags">'+w.related.map(r=>'<span>'+esc(r)+'</span>').join('')+'</div></section>':'')+
